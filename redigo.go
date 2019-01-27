@@ -17,10 +17,11 @@ type (
 	// Pool is type alias of redis.Pool
 	Pool = redis.Pool
 
-	// redisConf is logger configuration struct.
+	// redisConf is redis configuration struct.
 	redisConf struct {
 		Host        string
 		Port        string
+		Password    string
 		MaxIdle     int           `mapstructure:"max_idle"`
 		MaxActive   int           `mapstructure:"max_active"`
 		IdleTimeout time.Duration `mapstructure:"idle_timeout"`
@@ -76,6 +77,11 @@ func (b *Bundle) Build(builder *di.Builder) error {
 				conf.IdleTimeout = 240 * time.Second
 			}
 
+			var options []redis.DialOption
+			if conf.Password != "" {
+				options = append(options, redis.DialPassword(conf.Password))
+			}
+
 			var pool = &redis.Pool{
 				MaxIdle:     conf.MaxIdle,
 				IdleTimeout: conf.IdleTimeout,
@@ -86,6 +92,7 @@ func (b *Bundle) Build(builder *di.Builder) error {
 							cfg.GetString("redis.host"),
 							cfg.GetString("redis.port"),
 						),
+						options...,
 					)
 				},
 			}
