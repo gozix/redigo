@@ -19,8 +19,6 @@ type (
 
 	// redisConf is redis configuration struct.
 	redisConf struct {
-		Host        string
-		Port        string
 		Password    string
 		MaxIdle     int           `mapstructure:"max_idle"`
 		MaxActive   int           `mapstructure:"max_active"`
