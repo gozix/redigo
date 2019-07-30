@@ -71,15 +71,15 @@ func (b *Bundle) Build(builder *di.Builder) error {
 			}
 
 			if cfg.MaxIdle < 0 {
-				return nil, errors.New("redis.MaxIdle should be greater then 0")
+				return nil, errors.New("redis.max_idle should be greater then 0")
 			}
 
 			if cfg.MaxActive < 0 {
-				return nil, errors.New("redis.MaxActive should be greater or equal to 0")
+				return nil, errors.New("redis.max_active should be greater or equal to 0")
 			}
 
 			if cfg.IdleTimeout < 0 {
-				return nil, errors.New("redis.IdleTimeout should be greater or equal to 0")
+				return nil, errors.New("redis.idle_timeout should be greater or equal to 0")
 			}
 
 			var options []redis.DialOption
