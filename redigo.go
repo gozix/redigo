@@ -17,12 +17,14 @@ type (
 	// Pool is type alias of redis.Pool
 	Pool = redis.Pool
 
-	// redisConf is redis configuration struct.
-	redisConf struct {
+	// config is redis configuration struct.
+	config struct {
+		Host        string
+		Port        string
 		Password    string
-		MaxIdle     int           `mapstructure:"max_idle"`
-		MaxActive   int           `mapstructure:"max_active"`
-		IdleTimeout time.Duration `mapstructure:"idle_timeout"`
+		MaxIdle     int
+		MaxActive   int
+		IdleTimeout time.Duration
 	}
 )
 
@@ -44,51 +46,56 @@ func (b *Bundle) Build(builder *di.Builder) error {
 	return builder.Add(di.Def{
 		Name: BundleName,
 		Build: func(ctn di.Container) (_ interface{}, err error) {
-			var cfg *viper.Viper
-			if err = ctn.Fill(viper.BundleName, &cfg); err != nil {
+			var v *viper.Viper
+			if err = ctn.Fill(viper.BundleName, &v); err != nil {
 				return nil, err
-			}
-
-			var conf redisConf
-			if err = cfg.UnmarshalKey("redis", &conf); err != nil {
-				return nil, err
-			}
-
-			if conf.MaxIdle < 0 {
-				return nil, errors.New("redis.MaxIdle should be greater then 0")
 			}
 
 			// set default
-			if conf.MaxIdle == 0 {
-				conf.MaxIdle = 3
+			v.SetDefault("redis.port", "6379")
+			v.SetDefault("redis.max_idle", 3)
+			v.SetDefault("redis.idle_timeout", 240*time.Second)
+
+			var cfg = config{
+				Host:        v.GetString("redis.host"),
+				Port:        v.GetString("redis.port"),
+				Password:    v.GetString("redis.password"),
+				MaxIdle:     v.GetInt("redis.max_idle"),
+				MaxActive:   v.GetInt("redis.max_active"),
+				IdleTimeout: v.GetDuration("redis.idle_timeout"),
 			}
 
-			if conf.MaxActive < 0 {
-				return nil, errors.New("redis.MaxActive should be greater or equal to 0")
+			// validating
+			if cfg.Host == "" {
+				return nil, errors.New("redis.host should be set")
 			}
 
-			if conf.IdleTimeout < 0 {
-				return nil, errors.New("redis.IdleTimeout should be greater or equal to 0")
+			if cfg.MaxIdle < 0 {
+				return nil, errors.New("redis.max_idle should be greater then 0")
 			}
 
-			if conf.IdleTimeout == 0 {
-				conf.IdleTimeout = 240 * time.Second
+			if cfg.MaxActive < 0 {
+				return nil, errors.New("redis.max_active should be greater or equal to 0")
+			}
+
+			if cfg.IdleTimeout < 0 {
+				return nil, errors.New("redis.idle_timeout should be greater or equal to 0")
 			}
 
 			var options []redis.DialOption
-			if conf.Password != "" {
-				options = append(options, redis.DialPassword(conf.Password))
+			if cfg.Password != "" {
+				options = append(options, redis.DialPassword(cfg.Password))
 			}
 
 			var pool = &redis.Pool{
-				MaxIdle:     conf.MaxIdle,
-				IdleTimeout: conf.IdleTimeout,
+				MaxIdle:     cfg.MaxIdle,
+				IdleTimeout: cfg.IdleTimeout,
 				Dial: func() (redis.Conn, error) {
 					return redis.Dial(
 						"tcp",
 						net.JoinHostPort(
-							cfg.GetString("redis.host"),
-							cfg.GetString("redis.port"),
+							cfg.Host,
+							cfg.Port,
 						),
 						options...,
 					)
