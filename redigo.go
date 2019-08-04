@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/gomodule/redigo/redis"
-	"github.com/gozix/viper"
-	"github.com/sarulabs/di"
+	"github.com/gozix/viper/v2"
+	"github.com/sarulabs/di/v2"
 )
 
 type (
