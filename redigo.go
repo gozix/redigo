@@ -2,7 +2,8 @@ package redigo
 
 import (
 	"errors"
-	"net"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
@@ -16,16 +17,6 @@ type (
 
 	// Pool is type alias of redis.Pool
 	Pool = redis.Pool
-
-	// config is redis configuration struct.
-	config struct {
-		Host        string
-		Port        string
-		Password    string
-		MaxIdle     int
-		MaxActive   int
-		IdleTimeout time.Duration
-	}
 )
 
 // BundleName is default definition name.
@@ -36,7 +27,7 @@ func NewBundle() *Bundle {
 	return new(Bundle)
 }
 
-// Key implements the glue.Bundle interface.
+// Name implements the glue.Bundle interface.
 func (b *Bundle) Name() string {
 	return BundleName
 }
@@ -46,73 +37,64 @@ func (b *Bundle) Build(builder *di.Builder) error {
 	return builder.Add(di.Def{
 		Name: BundleName,
 		Build: func(ctn di.Container) (_ interface{}, err error) {
-			var v *viper.Viper
-			if err = ctn.Fill(viper.BundleName, &v); err != nil {
+			var cfg *viper.Viper
+			if err = ctn.Fill(viper.BundleName, &cfg); err != nil {
 				return nil, err
 			}
 
-			// set default
-			v.SetDefault("redis.port", "6379")
-			v.SetDefault("redis.max_idle", 3)
-			v.SetDefault("redis.idle_timeout", 240*time.Second)
+			// use this is hack, not UnmarshalKey
+			// see https://github.com/spf13/viper/issues/188
+			var (
+				keys = cfg.Sub(ConfigKey).AllKeys()
+				conf = make(Configs, len(keys))
+			)
 
-			var cfg = config{
-				Host:        v.GetString("redis.host"),
-				Port:        v.GetString("redis.port"),
-				Password:    v.GetString("redis.password"),
-				MaxIdle:     v.GetInt("redis.max_idle"),
-				MaxActive:   v.GetInt("redis.max_active"),
-				IdleTimeout: v.GetDuration("redis.idle_timeout"),
+			for _, key := range keys {
+				var name = strings.Split(key, ".")[0]
+				if _, ok := conf[name]; ok {
+					continue
+				}
+
+				var suffix = fmt.Sprintf("%s.%s.", ConfigKey, name)
+
+				cfg.SetDefault(suffix+"port", "6379")
+				cfg.SetDefault(suffix+"max_idle", 3)
+				cfg.SetDefault(suffix+"idle_timeout", 240*time.Second)
+
+				var c = Config{
+					Host:        cfg.GetString(suffix + "host"),
+					Port:        cfg.GetString(suffix + "port"),
+					DB:          cfg.GetInt(suffix + "db"),
+					Password:    cfg.GetString(suffix + "password"),
+					MaxIdle:     cfg.GetInt(suffix + "max_idle"),
+					MaxActive:   cfg.GetInt(suffix + "max_active"),
+					IdleTimeout: cfg.GetDuration(suffix + "idle_timeout"),
+				}
+
+				// validating
+				if c.Host == "" {
+					return nil, errors.New(suffix + "host should be set")
+				}
+
+				if c.MaxIdle < 0 {
+					return nil, errors.New(suffix + "max_idle should be greater or equal to 0")
+				}
+
+				if c.MaxActive < 0 {
+					return nil, errors.New(suffix + "max_active should be greater or equal to 0")
+				}
+
+				if c.IdleTimeout < 0 {
+					return nil, errors.New(suffix + "idle_timeout should be greater or equal to 0")
+				}
+
+				conf[name] = c
 			}
 
-			// validating
-			if cfg.Host == "" {
-				return nil, errors.New("redis.host should be set")
-			}
-
-			if cfg.MaxIdle < 0 {
-				return nil, errors.New("redis.max_idle should be greater then 0")
-			}
-
-			if cfg.MaxActive < 0 {
-				return nil, errors.New("redis.max_active should be greater or equal to 0")
-			}
-
-			if cfg.IdleTimeout < 0 {
-				return nil, errors.New("redis.idle_timeout should be greater or equal to 0")
-			}
-
-			var options []redis.DialOption
-			if cfg.Password != "" {
-				options = append(options, redis.DialPassword(cfg.Password))
-			}
-
-			var pool = &redis.Pool{
-				MaxIdle:     cfg.MaxIdle,
-				IdleTimeout: cfg.IdleTimeout,
-				Dial: func() (redis.Conn, error) {
-					return redis.Dial(
-						"tcp",
-						net.JoinHostPort(
-							cfg.Host,
-							cfg.Port,
-						),
-						options...,
-					)
-				},
-			}
-
-			var conn = pool.Get()
-			defer conn.Close()
-
-			if _, err = conn.Do("PING"); err != nil {
-				return nil, err
-			}
-
-			return pool, nil
+			return NewRegistry(conf), nil
 		},
 		Close: func(obj interface{}) error {
-			return obj.(*redis.Pool).Close()
+			return obj.(*Registry).Close()
 		},
 	})
 }
