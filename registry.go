@@ -13,7 +13,7 @@ import (
 const DEFAULT = "default"
 
 // ConfigKey is root config key.
-const ConfigKey = "redis"
+const configKey = "redis"
 
 type (
 	// Config is registry configuration item.

@@ -45,7 +45,7 @@ func (b *Bundle) Build(builder *di.Builder) error {
 			// use this is hack, not UnmarshalKey
 			// see https://github.com/spf13/viper/issues/188
 			var (
-				keys = cfg.Sub(ConfigKey).AllKeys()
+				keys = cfg.Sub(configKey).AllKeys()
 				conf = make(Configs, len(keys))
 			)
 
@@ -55,7 +55,7 @@ func (b *Bundle) Build(builder *di.Builder) error {
 					continue
 				}
 
-				var suffix = fmt.Sprintf("%s.%s.", ConfigKey, name)
+				var suffix = fmt.Sprintf("%s.%s.", configKey, name)
 
 				cfg.SetDefault(suffix+"port", "6379")
 				cfg.SetDefault(suffix+"max_idle", 3)
