@@ -57,14 +57,14 @@ func (r *Registry) Close() (err error) {
 	defer r.mux.Unlock()
 
 	for key, pool := range r.pools {
-		if err = pool.Close(); err != nil {
-			return err
+		if errClose := pool.Close(); errClose != nil {
+			err = errClose
 		}
 
 		delete(r.pools, key)
 	}
 
-	return nil
+	return err
 }
 
 // Connection is default connection getter.
