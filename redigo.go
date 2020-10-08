@@ -19,12 +19,14 @@ type (
 
 	// config is redis configuration struct.
 	config struct {
-		Host        string
-		Port        string
-		Password    string
-		MaxIdle     int
-		MaxActive   int
-		IdleTimeout time.Duration
+		Host                  string
+		Port                  string
+		Password              string
+		IdleTimeout           time.Duration
+		MaxActive             int
+		MaxConnectionLifetime time.Duration
+		MaxIdle               int
+		Wait                  bool
 	}
 )
 
@@ -55,14 +57,17 @@ func (b *Bundle) Build(builder *di.Builder) error {
 			v.SetDefault("redis.port", "6379")
 			v.SetDefault("redis.max_idle", 3)
 			v.SetDefault("redis.idle_timeout", 240*time.Second)
+			v.SetDefault("redis.wait", true)
 
 			var cfg = config{
-				Host:        v.GetString("redis.host"),
-				Port:        v.GetString("redis.port"),
-				Password:    v.GetString("redis.password"),
-				MaxIdle:     v.GetInt("redis.max_idle"),
-				MaxActive:   v.GetInt("redis.max_active"),
-				IdleTimeout: v.GetDuration("redis.idle_timeout"),
+				Host:                  v.GetString("redis.host"),
+				Port:                  v.GetString("redis.port"),
+				Password:              v.GetString("redis.password"),
+				IdleTimeout:           v.GetDuration("redis.idle_timeout"),
+				MaxActive:             v.GetInt("redis.max_active"),
+				MaxConnectionLifetime: v.GetDuration("redis.max_connection_lifetime"),
+				MaxIdle:               v.GetInt("redis.max_idle"),
+				Wait:                  v.GetBool("redis.wait"),
 			}
 
 			// validating
@@ -88,8 +93,6 @@ func (b *Bundle) Build(builder *di.Builder) error {
 			}
 
 			var pool = &redis.Pool{
-				MaxIdle:     cfg.MaxIdle,
-				IdleTimeout: cfg.IdleTimeout,
 				Dial: func() (redis.Conn, error) {
 					return redis.Dial(
 						"tcp",
@@ -100,6 +103,11 @@ func (b *Bundle) Build(builder *di.Builder) error {
 						options...,
 					)
 				},
+				IdleTimeout:     cfg.IdleTimeout,
+				MaxActive:       cfg.MaxActive,
+				MaxConnLifetime: cfg.MaxConnectionLifetime,
+				MaxIdle:         cfg.MaxIdle,
+				Wait:            cfg.Wait,
 			}
 
 			var conn = pool.Get()
