@@ -1,3 +1,7 @@
+// Copyright 2018 Sergey Novichkov. All rights reserved.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+
 package redigo
 
 import (
@@ -9,11 +13,13 @@ import (
 	"github.com/gomodule/redigo/redis"
 )
 
-// DEFAULT is default connection name.
-const DEFAULT = "default"
+const (
+	// DEFAULT is default connection name.
+	DEFAULT = "default"
 
-// ConfigKey is root config key.
-const configKey = "redis"
+	// ConfigKey is root config key.
+	configKey = "redis"
+)
 
 type (
 	// Config is registry configuration item.
@@ -38,10 +44,8 @@ type (
 	}
 )
 
-var (
-	// ErrUnknownConnection is error triggered when connection with provided name not founded.
-	ErrUnknownConnection = errors.New("unknown connection")
-)
+// ErrUnknownConnection is error triggered when connection with provided name not founded.
+var ErrUnknownConnection = errors.New("unknown connection")
 
 // NewRegistry is registry constructor.
 func NewRegistry(conf Configs) *Registry {
